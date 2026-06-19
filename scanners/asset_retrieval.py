@@ -63,22 +63,24 @@ def get_unassociated_elastic_ips() -> list[ElasticIPRecord]:
         region_name="us-east-1"
     )
 
-    response = ec2.describe_addresses()
+    paginator = ec2.get_paginator("describe_addresses")
 
     unassociated_ips = []
 
-    for address in response["Addresses"]:
+    for page in paginator.paginate():
 
-        if "InstanceId" not in address:
+        for address in page["Addresses"]:
 
-            unassociated_ips.append(
-                {
-                    "allocation_id": address.get("AllocationId"),
-                    "public_ip": address.get("PublicIp"),
-                    "region": "us-east-1",
-                    "associated": False,
-                    "instance_id": None,
-                }
-            )
+            if "InstanceId" not in address:
+
+                unassociated_ips.append(
+                    {
+                        "allocation_id": address.get("AllocationId"),
+                        "public_ip": address.get("PublicIp"),
+                        "region": "us-east-1",
+                        "associated": False,
+                        "instance_id": None,
+                    }
+                )
 
     return unassociated_ips
