@@ -23,18 +23,7 @@ def call_with_retry(func, max_retries=3):
 def scan_region(region, service="ec2"):
     session = get_session()
     client = session.client(service, region_name=region)
-
-    call_count = {"n": 0}
-    def maybe_throttled_call():
-        call_count["n"] += 1
-        if region == "us-west-2" and call_count["n"] == 1:
-            raise ClientError(
-                {"Error": {"Code": "Throttling", "Message": "Rate exceeded"}},
-                "DescribeAvailabilityZones"
-            )
-        return client.describe_availability_zones()
-
-    azs = call_with_retry(maybe_throttled_call)
+    azs = call_with_retry(lambda: client.describe_availability_zones())
     return region, len(azs["AvailabilityZones"])
 
 def scan_regions_concurrently(regions, service="ec2"):
