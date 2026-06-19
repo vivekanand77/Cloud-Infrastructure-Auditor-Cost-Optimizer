@@ -28,30 +28,31 @@ class ElasticIPRecord(TypedDict):
 
 def get_unattached_ebs_volumes() -> list[EBSVolumeRecord]:
 
-
     ec2 = boto3.client(
         "ec2",
         region_name="us-east-1"
     )
 
-    response = ec2.describe_volumes()
+    paginator = ec2.get_paginator("describe_volumes")
 
     unattached_volumes = []
 
-    for volume in response["Volumes"]:
+    for page in paginator.paginate():
 
-        if volume["State"] == "available":
+        for volume in page["Volumes"]:
 
-            unattached_volumes.append(
-                {
-                    "volume_id": volume["VolumeId"],
-                    "size_gb": volume["Size"],
-                    "volume_type": volume["VolumeType"],
-                    "region": "us-east-1",
-                    "state": volume["State"],
-                    "attached_instance_id": None,
-                }
-            )
+            if volume["State"] == "available":
+
+                unattached_volumes.append(
+                    {
+                        "volume_id": volume["VolumeId"],
+                        "size_gb": volume["Size"],
+                        "volume_type": volume["VolumeType"],
+                        "region": "us-east-1",
+                        "state": volume["State"],
+                        "attached_instance_id": None,
+                    }
+                )
 
     return unattached_volumes
 
