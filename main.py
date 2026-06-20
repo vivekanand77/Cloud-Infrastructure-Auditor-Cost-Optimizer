@@ -1,5 +1,6 @@
 import typer
 from typing import Optional
+from utils.concurrency_engine import scan_regions_concurrently
 
 app = typer.Typer(help="Cloud Infrastructure Auditor & Cost Optimizer")
 
@@ -12,10 +13,14 @@ def scan(
     """
     Scan AWS services for cost optimization opportunities.
     """
-    typer.echo(f"Scanning {service}...")
- 
- 
-    # Authentication and routing logic will go here
+    regions = [region] if region else ["us-east-1", "us-west-2", "eu-west-1"]
+    typer.echo(f"Scanning {service} across {regions}...")
+
+    results = scan_regions_concurrently(regions, service)
+
+    for r, count in results.items():
+        typer.echo(f"{r}: {count} resources found")
+
 @app.command()
 def clean(
     service: str = typer.Argument(...,help = 'AWS Service to Report'),
