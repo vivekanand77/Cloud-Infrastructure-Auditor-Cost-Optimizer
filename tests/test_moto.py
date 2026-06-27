@@ -8,17 +8,20 @@ from scanners.asset_retrieval import (
 
 
 @mock_aws
-def test_week3_day1():
+def test_week3_day2():
 
+    # ------------------------------------
     # Create fake EC2 client
+    # ------------------------------------
+
     ec2 = boto3.client(
         "ec2",
         region_name="us-east-1"
     )
 
-    # ---------------------------------
-    # Create known test resources
-    # ---------------------------------
+    # ------------------------------------
+    # Create known AWS resources
+    # ------------------------------------
 
     volume1 = ec2.create_volume(
         Size=100,
@@ -34,97 +37,167 @@ def test_week3_day1():
         Domain="vpc"
     )
 
-    # ---------------------------------
+    # ------------------------------------
     # Expected Resources
-    # ---------------------------------
+    # ------------------------------------
 
-    print("\n==============================")
-    print("EXPECTED RESOURCES")
-    print("==============================")
+    print("\n========================================")
+    print("EXPECTED AWS RESOURCES")
+    print("========================================")
 
-    print(f"Volume 1 ID : {volume1['VolumeId']}")
-    print("Size        : 100 GB")
-    print("State       : available")
+    print("\nVolume 1")
+    print(f"Volume ID : {volume1['VolumeId']}")
+    print("Size      : 100 GB")
+    print("State     : available")
+    print("Region    : us-east-1")
 
-    print()
+    print("\nVolume 2")
+    print(f"Volume ID : {volume2['VolumeId']}")
+    print("Size      : 200 GB")
+    print("State     : available")
+    print("Region    : us-east-1")
 
-    print(f"Volume 2 ID : {volume2['VolumeId']}")
-    print("Size        : 200 GB")
-    print("State       : available")
+    print("\nElastic IP")
+    print(f"Allocation ID : {elastic_ip['AllocationId']}")
+    print(f"Public IP     : {elastic_ip['PublicIp']}")
+    print("Associated    : False")
+    print("Region         : us-east-1")
 
-    print()
-
-    print(f"Elastic IP Allocation ID : {elastic_ip['AllocationId']}")
-    print(f"Public IP                : {elastic_ip['PublicIp']}")
-    print("Associated               : False")
-
-    # ---------------------------------
-    # Run your scanner
-    # ---------------------------------
+    # ------------------------------------
+    # Run Scanner
+    # ------------------------------------
 
     ebs_results = get_unattached_ebs_volumes()
     elastic_results = get_unassociated_elastic_ips()
 
-    # ---------------------------------
+    # ------------------------------------
     # Scanner Output
-    # ---------------------------------
+    # ------------------------------------
 
-    print("\n==============================")
+    print("\n========================================")
     print("SCANNER OUTPUT")
-    print("==============================")
+    print("========================================")
 
-    print("\nEBS Volumes Found:")
+    print("\nEBS Volumes")
 
     for volume in ebs_results:
         print(volume)
 
-    print("\nElastic IPs Found:")
+    print("\nElastic IPs")
 
     for ip in elastic_results:
         print(ip)
 
-    # ---------------------------------
-    # Verification
-    # ---------------------------------
+    # ------------------------------------
+    # Manual Field Comparison
+    # ------------------------------------
 
-    print("\n==============================")
-    print("VERIFICATION")
-    print("==============================")
+    print("\n========================================")
+    print("FIELD BY FIELD COMPARISON")
+    print("========================================")
+
+    # ---------- Volume 1 ----------
+
+    print("\nVolume 1")
+
+    print(f"AWS Volume ID      : {volume1['VolumeId']}")
+    print(f"Scanner Volume ID  : {ebs_results[0]['volume_id']}")
+
+    print(f"AWS Size           : 100")
+    print(f"Scanner Size       : {ebs_results[0]['size_gb']}")
+
+    print(f"AWS State          : available")
+    print(f"Scanner State      : {ebs_results[0]['state']}")
+
+    print(f"AWS Region         : us-east-1")
+    print(f"Scanner Region     : {ebs_results[0]['region']}")
+
+    # ---------- Volume 2 ----------
+
+    print("\n----------------------------------------")
+
+    print("\nVolume 2")
+
+    print(f"AWS Volume ID      : {volume2['VolumeId']}")
+    print(f"Scanner Volume ID  : {ebs_results[1]['volume_id']}")
+
+    print(f"AWS Size           : 200")
+    print(f"Scanner Size       : {ebs_results[1]['size_gb']}")
+
+    print(f"AWS State          : available")
+    print(f"Scanner State      : {ebs_results[1]['state']}")
+
+    print(f"AWS Region         : us-east-1")
+    print(f"Scanner Region     : {ebs_results[1]['region']}")
+
+    # ---------- Elastic IP ----------
+
+    print("\n----------------------------------------")
+
+    print("\nElastic IP")
+
+    print(f"AWS Allocation ID      : {elastic_ip['AllocationId']}")
+    print(f"Scanner Allocation ID  : {elastic_results[0]['allocation_id']}")
+
+    print(f"AWS Public IP          : {elastic_ip['PublicIp']}")
+    print(f"Scanner Public IP      : {elastic_results[0]['public_ip']}")
+
+    print(f"AWS Associated         : False")
+    print(f"Scanner Associated     : {elastic_results[0]['associated']}")
+
+    print(f"AWS Region             : us-east-1")
+    print(f"Scanner Region         : {elastic_results[0]['region']}")
+
+    # ------------------------------------
+    # Verification
+    # ------------------------------------
+
+    print("\n========================================")
+    print("DAY 2 VERIFICATION")
+    print("========================================")
+
+    # Number of resources
 
     assert len(ebs_results) == 2
-    print("✓ Correct number of EBS volumes detected.")
-
     assert len(elastic_results) == 1
-    print("✓ Correct number of Elastic IPs detected.")
 
-    # Verify volume IDs
-    volume_ids = {volume["volume_id"] for volume in ebs_results}
+    print("✓ Correct number of resources detected.")
 
-    assert volume1["VolumeId"] in volume_ids
-    assert volume2["VolumeId"] in volume_ids
+    # Volume 1
 
-    print("✓ Volume IDs match.")
+    assert volume1["VolumeId"] == ebs_results[0]["volume_id"]
+    assert ebs_results[0]["size_gb"] == 100
+    assert ebs_results[0]["state"] == "available"
+    assert ebs_results[0]["region"] == "us-east-1"
 
-    # Verify sizes
-    sizes = sorted(volume["size_gb"] for volume in ebs_results)
+    print("✓ Volume 1 verified.")
 
-    assert sizes == [100, 200]
+    # Volume 2
 
-    print("✓ Volume sizes match.")
+    assert volume2["VolumeId"] == ebs_results[1]["volume_id"]
+    assert ebs_results[1]["size_gb"] == 200
+    assert ebs_results[1]["state"] == "available"
+    assert ebs_results[1]["region"] == "us-east-1"
 
-    # Verify Elastic IP
+    print("✓ Volume 2 verified.")
 
-    assert (
-        elastic_results[0]["allocation_id"]
-        == elastic_ip["AllocationId"]
-    )
+    # Elastic IP
 
-    print("✓ Elastic IP Allocation ID matches.")
-
+    assert elastic_ip["AllocationId"] == elastic_results[0]["allocation_id"]
+    assert elastic_ip["PublicIp"] == elastic_results[0]["public_ip"]
     assert elastic_results[0]["associated"] is False
+    assert elastic_results[0]["region"] == "us-east-1"
 
-    print("✓ Elastic IP is correctly reported as unassociated.")
+    print("✓ Elastic IP verified.")
+
+    print("\n========================================")
+    print("RESULT")
+    print("========================================")
+
+    print("✓ Scanner output matches AWS resources.")
+    print("✓ All fields verified successfully.")
+    print("✓ Week 3 Day 2 Completed.")
 
 
 if __name__ == "__main__":
-    test_week3_day1()
+    test_week3_day2()
