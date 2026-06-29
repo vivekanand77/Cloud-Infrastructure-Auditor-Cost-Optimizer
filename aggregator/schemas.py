@@ -26,3 +26,11 @@ class UniformRecord(TypedDict):
     metric_value: float
     estimated_waste_usd: float
     tags: dict
+
+class CPURecord(TypedDict):
+    instance_id: str
+    region: str
+    avg_cpu_percent: float
+    is_flagged: bool
+    account_id: str
+    flagged_at: str

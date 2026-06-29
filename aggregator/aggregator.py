@@ -1,14 +1,15 @@
 from schemas import (
     EBSVolumeRecord,
     ElasticIPRecord,
-    UniformRecord
+    UniformRecord,
+    CPURecord
 )
 
 
 def aggregate_data(
     nancy_ebs: list[EBSVolumeRecord],
     nancy_eip: list[ElasticIPRecord],
-    lahari_cpu: list[dict]
+    lahari_cpu: list[CPURecord]
 ) -> list[UniformRecord]:
 
     combined: list[UniformRecord] = []
@@ -34,6 +35,17 @@ def aggregate_data(
             "estimated_waste_usd": 3.6,
             "tags": {}
         })
+        
+    for record in lahari_cpu:
+        combined.append({
+            "resource_id": record["instance_id"],
+            "resource_type": "EC2-CPU",
+            "region": record["region"],
+            "status": "underutilized",
+            "metric_value": record["avg_cpu_percent"],
+            "estimated_waste_usd": 0.0,
+            "tags": {}
+        })    
 
     return combined
 
@@ -56,6 +68,25 @@ if __name__ == "__main__":
         "instance_id": None
     }]
 
-    result = aggregate_data(mock_ebs, mock_eip, [])
+    mock_cpu = [
+    {
+        "instance_id": "i-aaa",
+        "region": "us-east-1",
+        "avg_cpu_percent": 2.88,
+        "is_flagged": True,
+        "account_id": "123456789012",
+        "flagged_at": "2026-06-28T12:00:00+00:00"
+    },
+    {
+        "instance_id": "i-bbb",
+        "region": "us-east-1",
+        "avg_cpu_percent": 3.1,
+        "is_flagged": True,
+        "account_id": "123456789012",
+        "flagged_at": "2026-06-28T12:00:00+00:00"
+    }
+]
+
+    result = aggregate_data(mock_ebs, mock_eip, mock_cpu)
     for item in result:
         print(item)
