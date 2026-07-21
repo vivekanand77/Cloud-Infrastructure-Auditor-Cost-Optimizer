@@ -116,7 +116,7 @@ def filter_underutilized(
 def get_low_cpu_instances(
     threshold: float = 5.0,
     days: int = 14,
-    region: str = "ap-south-1",
+    region: str = "us-east-1",
     boto_session: Optional[boto3.Session] = None,
 ) -> list[UnderutilizedInstance]:
     """
@@ -151,123 +151,7 @@ def get_low_cpu_instances(
         })
     return records
 
-
-# ── Self-test (Stubber — no real AWS needed) ──────────────────────────────────
-
-def _run_stubbed_test():
-    """
-    3 simulated instances:
-      i-aaa → avg 2.88%   FLAGGED
-      i-bbb → avg 3.10%   FLAGGED
-      i-ccc → avg 45.50%  skipped (healthy)
-    """
-    # Fix timestamps so stubber params match exactly
-    now   = datetime(2026, 6, 28, 12, 0, 0, tzinfo=UTC)
-    start = now - timedelta(days=14)
-
-    def dp(offset_days, avg):
-        return {"Timestamp": start + timedelta(days=offset_days),
-                "Average": avg, "Unit": "Percent"}
-
-    session  = boto3.Session(region_name="ap-south-1")
-    cw       = session.client("cloudwatch", region_name="ap-south-1")
-    sts      = session.client("sts")
-    cw_stub  = Stubber(cw)
-    sts_stub = Stubber(sts)
-
-    # STS
-    sts_stub.add_response(
-        "get_caller_identity",
-        {"Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/t",
-         "UserId":"AID","ResponseMetadata":{}}, {},
-    )
-
-    # list_metrics
-    cw_stub.add_response(
-        "list_metrics",
-        {"Metrics":[
-            {"Namespace":"AWS/EC2","MetricName":"CPUUtilization",
-             "Dimensions":[{"Name":"InstanceId","Value":"i-aaa"}]},
-            {"Namespace":"AWS/EC2","MetricName":"CPUUtilization",
-             "Dimensions":[{"Name":"InstanceId","Value":"i-bbb"}]},
-            {"Namespace":"AWS/EC2","MetricName":"CPUUtilization",
-             "Dimensions":[{"Name":"InstanceId","Value":"i-ccc"}]},
-        ], "ResponseMetadata":{}},
-        {"Namespace":"AWS/EC2","MetricName":"CPUUtilization"},
-    )
-
-    base_params = {"Namespace":"AWS/EC2","MetricName":"CPUUtilization",
-                   "StartTime":start,"EndTime":now,"Period":86400,"Statistics":["Average"]}
-
-    cw_stub.add_response("get_metric_statistics",
-        {"Datapoints":[dp(0,2.1),dp(2,3.4),dp(5,1.8),dp(9,4.2),dp(13,2.9)],"ResponseMetadata":{}},
-        {**base_params,"Dimensions":[{"Name":"InstanceId","Value":"i-aaa"}]})
-
-    cw_stub.add_response("get_metric_statistics",
-        {"Datapoints":[dp(1,2.5),dp(4,3.8),dp(8,2.9),dp(12,3.2)],"ResponseMetadata":{}},
-        {**base_params,"Dimensions":[{"Name":"InstanceId","Value":"i-bbb"}]})
-
-    cw_stub.add_response("get_metric_statistics",
-        {"Datapoints":[dp(3,40.0),dp(10,51.0)],"ResponseMetadata":{}},
-        {**base_params,"Dimensions":[{"Name":"InstanceId","Value":"i-ccc"}]})
-
-    with cw_stub, sts_stub:
-        account_id    = sts.get_caller_identity()["Account"]
-        flagged_at    = now.isoformat()
-        instance_ids  = list_all_instance_ids(cw)
-        underutilized = filter_underutilized(instance_ids, cw, 5.0, start, now)
-
-        records: list[UnderutilizedInstance] = []
-        for (iid, avg_cpu, days_data) in underutilized:
-            records.append({
-                "instance_id":"instance_id","region":"ap-south-1",
-                "avg_cpu_percent":avg_cpu,"days_analyzed":days_data,
-                "threshold_percent":5.0,"flagged_at":flagged_at,
-                "account_id":account_id,
-            })
-            records[-1]["instance_id"] = iid   # fix key
-
-    # ── Print results ─────────────────────────────────────────────────────────
-    SEP = "=" * 60
-    print(f"\n{SEP}")
-    print("  WEEK 2 — ALL 5 DAYS COMPLETE")
-    print(SEP)
-    print(f"  Instances scanned : {len(instance_ids)}  (i-aaa, i-bbb, i-ccc)")
-    print(f"  Threshold         : 5.0%")
-    print(f"  Flagged           : {len(records)}\n")
-
-    for r in records:
-        print(f"  ✅ FLAGGED → {r['instance_id']}")
-        print(f"     avg_cpu_percent   : {r['avg_cpu_percent']}%")
-        print(f"     days_analyzed     : {r['days_analyzed']}")
-        print(f"     threshold_percent : {r['threshold_percent']}%")
-        print(f"     region            : {r['region']}")
-        print(f"     account_id        : {r['account_id']}")
-        print(f"     flagged_at        : {r['flagged_at']}\n")
-
-    # Day 2 window check
-    print("  📅 Day 2 — Time Window:")
-    diff = (now - start).days
-    print(f"     start : {start.strftime('%Y-%m-%d %H:%M UTC')}")
-    print(f"     end   : {now.strftime('%Y-%m-%d %H:%M UTC')}")
-    print(f"     span  : {diff} days  ✓\n")
-
-    # Day 3 math verification
-    print("  🧮 Day 3 — Manual Math Check:")
-    for vals, name in [([2.1,3.4,1.8,4.2,2.9],"i-aaa"),([2.5,3.8,2.9,3.2],"i-bbb"),([40.0,51.0],"i-ccc")]:
-        avg = round(sum(vals)/len(vals), 4)
-        flag = "FLAGGED ✓" if avg < 5.0 else "healthy — not flagged ✓"
-        print(f"     {name}: sum={sum(vals)} / {len(vals)} = {avg}%  → {flag}")
-
-    print(f"\n  ✅ All assertions passed!")
-    print(f"  ✅ Schema ready for Dhruv's aggregator")
-    print(SEP + "\n")
-
-    assert len(records) == 2
-    assert records[0]["avg_cpu_percent"] == 2.88
-    assert records[1]["avg_cpu_percent"] == 3.1
-
+# ── Tests live in tests/test_cloudwatch.py ────────────────────────────────────
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    _run_stubbed_test()
+    print("Run:  pytest tests/test_cloudwatch.py -v")
