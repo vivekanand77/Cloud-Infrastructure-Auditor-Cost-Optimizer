@@ -7,36 +7,6 @@ from schemas import (
     CPURecord
 )
 
-# ── Cost constants ────────────────────────────────────────────────────────────
-
-EIP_MONTHLY_COST: float = 3.60  # USD/month for an unassociated Elastic IP
-
-_EBS_PRICE_PER_GB: dict[str, float] = {
-    "gp2":  0.10,
-    "gp3":  0.08,
-    "io1":  0.125,
-    "io2":  0.125,
-    "st1":  0.045,
-    "sc1":  0.025,
-    "standard": 0.05,
-}
-
-# Average on-demand hourly price (t3.medium equivalent) used as a proxy for
-# idle EC2 waste estimation when the actual instance type is not available.
-_EC2_DEFAULT_HOURLY_RATE: float = 0.0416  # USD/h  (t3.medium, us-east-1)
-_HOURS_PER_MONTH: int = 720
-
-
-def estimate_ebs_cost(volume_type: str, size_gb: int | float) -> float:
-    """Return estimated monthly cost in USD for an EBS volume."""
-    price_per_gb = _EBS_PRICE_PER_GB.get(volume_type.lower(), 0.10)
-    return round(price_per_gb * size_gb, 10)
-
-
-def estimate_ec2_idle_cost(hourly_rate: float = _EC2_DEFAULT_HOURLY_RATE) -> float:
-    """Return estimated monthly waste cost in USD for an idle EC2 instance."""
-    return round(hourly_rate * _HOURS_PER_MONTH, 10)
-
 
 def aggregate_data(
     nancy_ebs: list[EBSVolumeRecord],
@@ -53,7 +23,7 @@ def aggregate_data(
             "region": record["region"],
             "status": "idle",
             "metric_value": float(record["size_gb"]),
-            "estimated_waste_usd": estimate_ebs_cost(record["volume_type"], record["size_gb"]),
+            "estimated_waste_usd": 0.0,
             "tags": {}
         })
 
@@ -64,7 +34,7 @@ def aggregate_data(
             "region": record["region"],
             "status": "idle",
             "metric_value": 0.0,
-            "estimated_waste_usd": EIP_MONTHLY_COST,
+            "estimated_waste_usd": 3.6,
             "tags": {}
         })
         
@@ -75,9 +45,9 @@ def aggregate_data(
             "region": record["region"],
             "status": "underutilized",
             "metric_value": record["avg_cpu_percent"],
-            "estimated_waste_usd": estimate_ec2_idle_cost(),
+            "estimated_waste_usd": 0.0,
             "tags": {}
-        })
+        })    
 
     return combined
 

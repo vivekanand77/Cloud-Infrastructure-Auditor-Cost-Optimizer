@@ -28,8 +28,7 @@ def scan_region(region, service="ec2"):
 
 def scan_regions_concurrently(regions, service="ec2"):
     results = {}
-    max_workers = min(len(regions), 10)  # never spin up more than 10 threads at once
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=len(regions)) as executor:
         futures = {executor.submit(scan_region, r, service): r for r in regions}
         for future in as_completed(futures):
             region = futures[future]
