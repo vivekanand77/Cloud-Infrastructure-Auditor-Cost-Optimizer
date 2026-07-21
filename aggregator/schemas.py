@@ -8,7 +8,6 @@ class EBSVolumeRecord(TypedDict):
     region: str
     state: str
     attached_instance_id: Optional[str]
-    tags: dict
 
 
 class ElasticIPRecord(TypedDict):
@@ -17,7 +16,6 @@ class ElasticIPRecord(TypedDict):
     region: str
     associated: bool
     instance_id: Optional[str]
-    tags: dict
 
 
 class UniformRecord(TypedDict):
